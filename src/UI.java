@@ -296,4 +296,7 @@ public class UI extends JFrame {
 		paintPanel.setPreferredSize(new Dimension(data.length * blockSize, data[0].length * blockSize));
 		paintPanel.repaint();
 	}
+
+	// send udp to check any available server
+
 }
