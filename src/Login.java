@@ -12,10 +12,10 @@ public class Login {
     public Login() {
         JFrame frame = new JFrame("Login");
         JPanel panel = new JPanel();
-        JLabel username = new JLabel("username:");
+        JLabel username = new JLabel("Username:");
 
         frame.setSize(350, 200);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         frame.setResizable(false);
 
         frame.add(panel);
@@ -38,7 +38,6 @@ public class Login {
         JButton button = new JButton("Create");
         button.setBounds(130, 100, 85, 25);
         panel.add(button);
-
 
 
         button.addActionListener(new ActionListener() {
@@ -65,24 +64,19 @@ public class Login {
                     if (success) {
                         message = "- success";
                         status.setForeground(Color.green);
+
                     }
                     status.setText(message);
 
 
-                    Object[] objects = new Object[2];
-                    objects[0] = 1;
-                    objects[1] = str;
+                    // broadcast username
+                    String newMessage = "1," + str;
 
-                    System.out.println(Arrays.toString(Arrays.toString(objects).getBytes()));
 
-                    DatagramPacket packet = new DatagramPacket(str.getBytes(), str.length(), destination, port);
+                    DatagramPacket packet = new DatagramPacket(newMessage.getBytes(), newMessage.length(), destination, port);
                     socket.send(packet);
-
-
-
-
-
-
+                    KidPaint.main(null);
+                    frame.setVisible(false);
 
                 } catch (IOException ex) {
                     ex.printStackTrace();
@@ -96,11 +90,6 @@ public class Login {
 
 
     }
-
-    private void sendUDP(String username) {
-
-    }
-
 
     public static void main(String[] args) {
         new Login();
