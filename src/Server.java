@@ -5,14 +5,17 @@ import java.net.InetAddress;
 import java.net.SocketException;
 
 public class Server {
-
     DatagramSocket socket;
     private final int port = 5555;
 
     public Server() throws SocketException {
         socket = new DatagramSocket(port);
         Thread t = new Thread(() -> {
-            receive(socket);
+            try {
+                receive();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         });
         t.start();
     }
@@ -41,7 +44,11 @@ public class Server {
         while (true) {
             System.out.println("Waiting...");
             server.receive();
+
         }
     }
+
+
+
 
 }

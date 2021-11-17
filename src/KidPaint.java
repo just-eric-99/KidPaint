@@ -6,5 +6,13 @@ public class KidPaint {
 		ui.setVisible(true);				// set the ui
 
 
+
+
+
+
 	}
+
+
+
+
 }

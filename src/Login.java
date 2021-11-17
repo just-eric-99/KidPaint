@@ -75,7 +75,11 @@ public class Login {
 
                     DatagramPacket packet = new DatagramPacket(newMessage.getBytes(), newMessage.length(), destination, port);
                     socket.send(packet);
+
+                    // initiate KidPaint
                     KidPaint.main(null);
+
+                    // remove login gui
                     frame.setVisible(false);
 
                 } catch (IOException ex) {

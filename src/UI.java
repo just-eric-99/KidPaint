@@ -102,8 +102,12 @@ public class UI extends JFrame {
 			// handle the mouse-up event of the paint panel
 			@Override
 			public void mouseReleased(MouseEvent e) {
-				if (paintMode == PaintMode.Area && e.getX() >= 0 && e.getY() >= 0)
+				if (paintMode == PaintMode.Area && e.getX() >= 0 && e.getY() >= 0) {
 					paintArea(e.getX()/blockSize, e.getY()/blockSize);
+
+					// send data area mode
+					sendDataArea(e.getX()/blockSize, e.getY()/blockSize);
+				}
 			}
 		});
 		
@@ -111,8 +115,14 @@ public class UI extends JFrame {
 
 			@Override
 			public void mouseDragged(MouseEvent e) {
-				if (paintMode == PaintMode.Pixel && e.getX() >= 0 && e.getY() >= 0)
+				if (paintMode == PaintMode.Pixel && e.getX() >= 0 && e.getY() >= 0) {
 					paintPixel(e.getX()/blockSize,e.getY()/blockSize);
+
+					// send data pixel mode to server
+					sendDataPixel(e.getX()/blockSize,e.getY()/blockSize);
+				}
+
+
 			}
 
 			@Override public void mouseMoved(MouseEvent e) {}
@@ -202,6 +212,8 @@ public class UI extends JFrame {
 				if (e.getKeyCode() == 10) {		// if the user press ENTER
 					onTextInputted(msgField.getText());
 					msgField.setText("");
+					// send data to server
+
 				}
 			}
 			
@@ -297,6 +309,46 @@ public class UI extends JFrame {
 		paintPanel.repaint();
 	}
 
-	// send udp to check any available server
+	/*
+	 * receive text message
+	 */
+	private void receiveMessage() {
+		// receive message from server and display in the text area
+	}
+
+	/*
+	 * send text message
+	 */
+	private void sendMessage() {
+		// send message to the server
+	}
+
+	/*
+	 *  receive data PIXEL mode
+	 */
+	private void receiveDataPixel() {
+		// receive data for pixel mode, then call oa
+	}
+
+	/*
+	 *  send data PIXEL mode
+	 */
+	private void sendDataPixel(int col, int row) {
+
+	}
+
+	/*
+	 *  receive data AREA mode
+	 */
+	private void receiveDataArea() {
+
+	}
+
+	/*
+	 *  send data AREA mode
+	 */
+	private void sendDataArea(int col, int row) {
+
+	}
 
 }
