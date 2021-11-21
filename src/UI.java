@@ -242,6 +242,7 @@ public class UI extends JFrame {
 				tglPen.setSelected(false);
 				tglBucket.setSelected(false);
 				eraseMode = true;
+				paintMode = PaintMode.Pixel;
 			}
 		});
 
