@@ -1,101 +1,92 @@
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
-import java.net.*;
-import java.util.Arrays;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
-public class Login {
+import javax.swing.*;
 
+public class Login extends JFrame {
+    String serverIp;
+    int serverPort;
 
     public Login() {
-        JFrame frame = new JFrame("Login");
-        JPanel panel = new JPanel();
-        JLabel username = new JLabel("Username:");
+        this.setTitle("Login Page");
+        this.setSize(200, 150);
+        this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 
-        frame.setSize(350, 200);
-        frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        frame.setResizable(false);
+        Container container = this.getContentPane();
+        container.setLayout(new BorderLayout());
+        JPanel panel1 = new JPanel();
+        JPanel panel2 = new JPanel();
 
-        frame.add(panel);
+        JButton btn = new JButton("Start");
+        Label lb = new Label("Username");
+        JTextField username = new JTextField(10);
 
-        panel.setLayout(null);
-        username.setBounds(40, 45, 80, 25);
-        panel.add(username);
-        username.setVisible(true);
+        panel1.add(btn);
+        panel2.add(lb);
+        panel2.add(username);
 
-        JTextField input = new JTextField();
-        input.setBounds(110, 45, 165, 25);
-        panel.add(input);
-
-        JLabel status = new JLabel("");
-        status.setBounds(40, 70, 250, 25);
+        container.add(panel2);
+        container.add(panel1, BorderLayout.SOUTH);
 
 
-        panel.add(status);
-
-        JButton button = new JButton("Create");
-        button.setBounds(130, 100, 85, 25);
-        panel.add(button);
-
-
-        button.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                try {
-                    InetAddress destination = InetAddress.getByName("255.255.255.255");
-                    int port = 5555;
-                    DatagramSocket socket = new DatagramSocket();
-                    String str = input.getText();
-                    String message = "";
-                    boolean success = true;
-                    if (str.isEmpty()) {
-                        message = "- username should not be empty";
-                        status.setForeground(Color.red);
-                        success = false;
-                    }
-                    if (str.contains(" ")) {
-                        message = "- username should not contain spacing";
-                        status.setForeground(Color.red);
-                        success = false;
-                    }
-
-                    if (success) {
-                        message = "- success";
-                        status.setForeground(Color.green);
-
-                    }
-                    status.setText(message);
-
-
-                    // broadcast username
-                    String newMessage = "1," + str;
-
-
-                    DatagramPacket packet = new DatagramPacket(newMessage.getBytes(), newMessage.length(), destination, port);
-                    socket.send(packet);
-
-                    // initiate KidPaint
-                    KidPaint.main(null);
-
-                    // remove login gui
-                    frame.setVisible(false);
-
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
+        btn.addActionListener( i -> {
+            // change username to anonymous is no input
+            if (username.getText().equals("")) {
+                username.setText("anonymous");
             }
 
+            btn.setEnabled(false);
+            try {
+
+
+                req(username.getText());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         });
+    }
+
+    void req(String username) throws UnknownHostException, IOException {
 
 
-        frame.setVisible(true);
+        DatagramSocket socket = new DatagramSocket();
+        DatagramPacket packet = new DatagramPacket(username.getBytes(), username.length(),
+                InetAddress.getByName("255.255.255.255"), 5555);
+        socket.send(packet);
+        DatagramPacket received = new DatagramPacket(new byte[1024], 1024);
 
+
+        while (true) {
+            System.out.println("Listening...");
+
+            socket.receive(received);
+            String content = new String(received.getData(), 0, received.getLength());
+
+            if (content != null) {
+                serverIp = received.getAddress().toString();
+                // remove the first "/" of the address string
+                serverIp = serverIp.substring(1);
+                serverPort = Integer.parseInt(content);
+                System.out.println("Server IP: " + serverIp);
+                System.out.println("Server Port: " + serverPort);
+
+                socket.close();
+                this.setVisible(false);
+
+                UI ui = UI.getInstance(serverIp, serverPort, username);
+
+                ui.setData(new int[50][50], 20);
+                ui.setVisible(true);
+                break;
+            }
+        }
 
     }
 
-    public static void main(String[] args) {
-        new Login();
-    }
 }

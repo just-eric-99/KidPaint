@@ -1,9 +1,6 @@
-import javax.swing.JFrame;
-import javax.swing.JPanel;
+import javax.swing.*;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
 import java.awt.Point;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
@@ -13,14 +10,15 @@ import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.Socket;
 import java.util.LinkedList;
 import java.util.List;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import javax.swing.JScrollPane;
-import javax.swing.JToggleButton;
-import javax.swing.SwingUtilities;
 import java.awt.Color;
 import javax.swing.border.LineBorder;
 
@@ -33,6 +31,16 @@ public class UI extends JFrame {
 	private JPanel paintPanel;
 	private JToggleButton tglPen;
 	private JToggleButton tglBucket;
+	private JToggleButton tglEraser;
+	private  JToggleButton tglImport;
+	private JToggleButton tglSave;
+
+	private JFileChooser fileChooser = new JFileChooser();
+	private boolean eraseMode = false;
+	String username;
+	DataOutputStream out;
+
+
 	
 	private static UI instance;
 	private int selectedColor = -543230; 	//golden
@@ -40,14 +48,20 @@ public class UI extends JFrame {
 	int[][] data = new int[50][50];			// pixel color data array
 	int blockSize = 16;
 	PaintMode paintMode = PaintMode.Pixel;
-	
+
+
+	public static UI getInstance() {
+
+		return instance;
+	}
+
 	/**
 	 * get the instance of UI. Singleton design pattern.
 	 * @return
 	 */
-	public static UI getInstance() {
+	public static UI getInstance(String serverIP, int port, String name) throws IOException {
 		if (instance == null)
-			instance = new UI();
+			instance = new UI(serverIP, port, name);
 		
 		return instance;
 	}
@@ -55,9 +69,18 @@ public class UI extends JFrame {
 	/**
 	 * private constructor. To create an instance of UI, call UI.getInstance() instead.
 	 */
-	private UI() {
+	private UI(String serverIP, int port, String name) throws IOException {
 		setTitle("KidPaint");
-		
+
+		username = name;
+		Socket socket = new Socket(serverIP, port);
+		out = new DataOutputStream(socket.getOutputStream());
+		Thread t = new Thread(() -> {
+			receiveData(socket);
+		});
+		t.start();
+
+
 		JPanel basePanel = new JPanel();
 		getContentPane().add(basePanel, BorderLayout.CENTER);
 		basePanel.setLayout(new BorderLayout(0, 0));
@@ -103,10 +126,11 @@ public class UI extends JFrame {
 			@Override
 			public void mouseReleased(MouseEvent e) {
 				if (paintMode == PaintMode.Area && e.getX() >= 0 && e.getY() >= 0) {
-					paintArea(e.getX()/blockSize, e.getY()/blockSize);
-
-					// send data area mode
-					sendDataArea(e.getX()/blockSize, e.getY()/blockSize);
+					try {
+						paintArea(e.getX()/blockSize, e.getY()/blockSize);
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
 				}
 			}
 		});
@@ -116,10 +140,11 @@ public class UI extends JFrame {
 			@Override
 			public void mouseDragged(MouseEvent e) {
 				if (paintMode == PaintMode.Pixel && e.getX() >= 0 && e.getY() >= 0) {
-					paintPixel(e.getX()/blockSize,e.getY()/blockSize);
-
-					// send data pixel mode to server
-					sendDataPixel(e.getX()/blockSize,e.getY()/blockSize);
+					try {
+						paintPixel(e.getX()/blockSize,e.getY()/blockSize);
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
 				}
 
 
@@ -162,7 +187,7 @@ public class UI extends JFrame {
 			}
 			
 		});
-		
+
 		toolPanel.add(pnlColorPicker);
 		
 		tglPen = new JToggleButton("Pen");
@@ -171,6 +196,19 @@ public class UI extends JFrame {
 		
 		tglBucket = new JToggleButton("Bucket");
 		toolPanel.add(tglBucket);
+
+		tglEraser = new JToggleButton("Eraser");
+		toolPanel.add(tglEraser);
+		tglEraser.setSelected(false);
+
+		tglImport = new JToggleButton("Import");
+		toolPanel.add(tglImport);
+		tglImport.setSelected(false);
+
+		tglSave = new JToggleButton("Save");
+		toolPanel.add(tglSave);
+		tglSave.setSelected(false);
+
 		
 		// change the paint mode to PIXEL mode
 		tglPen.addActionListener(new ActionListener() {
@@ -178,6 +216,8 @@ public class UI extends JFrame {
 			public void actionPerformed(ActionEvent arg0) {
 				tglPen.setSelected(true);
 				tglBucket.setSelected(false);
+				tglEraser.setSelected(false);
+				eraseMode = false;
 				paintMode = PaintMode.Pixel;
 			}
 		});
@@ -188,7 +228,61 @@ public class UI extends JFrame {
 			public void actionPerformed(ActionEvent arg0) {
 				tglPen.setSelected(false);
 				tglBucket.setSelected(true);
+				tglEraser.setSelected(false);
+				eraseMode = false;
 				paintMode = PaintMode.Area;
+			}
+		});
+
+		// change to eraser mode
+		tglEraser.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				tglEraser.setSelected(true);
+				tglPen.setSelected(false);
+				tglBucket.setSelected(false);
+				eraseMode = true;
+			}
+		});
+
+		// import data
+		tglImport.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				int[][] temp;
+				int r = fileChooser.showOpenDialog(null);
+				if (r == JFileChooser.APPROVE_OPTION) {
+					try {
+						temp = LocalInputOutput.importFile(fileChooser.getSelectedFile().getAbsolutePath());
+						for (int i = 0; i < LocalInputOutput.row; i++) {
+							for (int j = 0; j < LocalInputOutput.col; j++) {
+								out.writeInt(0);
+								String p = i + " " + j + " " + temp[i][j];
+								out.writeInt(p.length());
+								out.write(p.getBytes(), 0, p.length());
+							}
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
+				tglImport.setSelected(false);
+			}
+		});
+
+		// save file
+		tglSave.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				int r = fileChooser.showSaveDialog(null);
+				if (r == JFileChooser.APPROVE_OPTION) {
+					try {
+						LocalInputOutput.save(fileChooser.getSelectedFile().getAbsolutePath(), data);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
+				tglSave.setSelected(false);
 			}
 		});
 		
@@ -228,7 +322,7 @@ public class UI extends JFrame {
 		msgPanel.add(scrollPaneRight, BorderLayout.CENTER);
 		
 		this.setSize(new Dimension(800, 600));
-		this.setDefaultCloseOperation(EXIT_ON_CLOSE);
+		this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 	}
 	
 	/**
@@ -247,18 +341,40 @@ public class UI extends JFrame {
 	 * @param text - user inputted text
 	 */
 	private void onTextInputted(String text) {
-		chatArea.setText(chatArea.getText() + text + "\n");
+//		chatArea.setText(chatArea.getText() + text + "\n");
+
+		try {
+			text = username + ": " + text;
+			out.writeInt(-1);
+			out.writeInt(text.length());
+			out.write(text.getBytes(), 0, text.length());
+		} catch (IOException e) {
+			chatArea.append("Unable to send message to the server!\n");
+		}
 	}
 	
 	/**
 	 * change the color of a specific pixel
 	 * @param col, row - the position of the selected pixel
 	 */
-	public void paintPixel(int col, int row) {
+	public void paintPixel(int col, int row) throws IOException {
 		if (col >= data.length || row >= data[0].length) return;
 		
 		data[col][row] = selectedColor;
 		paintPanel.repaint(col * blockSize, row * blockSize, blockSize, blockSize);
+
+		if (eraseMode) {
+			data[col][row] = 0;
+		} else {
+			data[col][row] = selectedColor;
+		}
+
+		out.writeInt(0);
+		String p = col + " " + row + " " + data[col][row];
+
+		out.writeInt(p.length());
+		out.write(p.getBytes(), 0, p.length());
+
 	}
 	
 	/**
@@ -266,33 +382,45 @@ public class UI extends JFrame {
 	 * @param col, row - the position of the selected pixel
 	 * @return a list of modified pixels
 	 */
-	public List paintArea(int col, int row) {
+	public List paintArea(int col, int row) throws IOException {
 		LinkedList<Point> filledPixels = new LinkedList<Point>();
 
 		if (col >= data.length || row >= data[0].length) return filledPixels;
 
 		int oriColor = data[col][row];
 		LinkedList<Point> buffer = new LinkedList<Point>();
-		
-		if (oriColor != selectedColor) {
+
+		int tempColor = selectedColor;
+
+		if (eraseMode) {
+			tempColor = 0;
+		}
+
+		if (oriColor != tempColor) {
 			buffer.add(new Point(col, row));
 			
 			while(!buffer.isEmpty()) {
-				Point p = buffer.removeFirst();
-				int x = p.x;
-				int y = p.y;
+				Point point = buffer.removeFirst();
+				int x = point.x;
+				int y = point.y;
 				
 				if (data[x][y] != oriColor) continue;
-				
-				data[x][y] = selectedColor;
-				filledPixels.add(p);
+
+				data[x][y] = tempColor;
+
+				out.writeInt(0);
+				String p = x + " " + y + " " + data[x][y];
+				out.writeInt(p.length());
+				out.write(p.getBytes(), 0, p.length());
+
+				filledPixels.add(point);
 	
 				if (x > 0 && data[x-1][y] == oriColor) buffer.add(new Point(x-1, y));
 				if (x < data.length - 1 && data[x+1][y] == oriColor) buffer.add(new Point(x+1, y));
 				if (y > 0 && data[x][y-1] == oriColor) buffer.add(new Point(x, y-1));
 				if (y < data[0].length - 1 && data[x][y+1] == oriColor) buffer.add(new Point(x, y+1));
 			}
-			paintPanel.repaint();
+//			paintPanel.repaint();
 		}
 		return filledPixels;
 	}
@@ -309,46 +437,35 @@ public class UI extends JFrame {
 		paintPanel.repaint();
 	}
 
-	/*
-	 * receive text message
-	 */
-	private void receiveMessage() {
-		// receive message from server and display in the text area
+	private void receiveData(Socket socket) {
+		try {
+			byte[] buffer = new byte[1024];
+			DataInputStream in = new DataInputStream(socket.getInputStream());
+			while (true) {
+				int type = in.readInt();
+				int len = in.readInt();
+				in.read(buffer, 0, len);
+				String content = new String(buffer, 0, len);
+
+				if (type == 0) {
+					String[] p = content.split(" ");
+					int col = Integer.parseInt(p[0]);
+					int row = Integer.parseInt(p[1]);
+					int color = Integer.parseInt(p[2]);
+					SwingUtilities.invokeLater(() -> {
+						data[col][row] = color;
+						paintPanel.repaint(col * blockSize, row * blockSize, blockSize, blockSize);
+					});
+				}
+				if (type == -1) {
+					SwingUtilities.invokeLater(() -> {
+						chatArea.append(content + "\n");
+
+					});
+				}
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
-
-	/*
-	 * send text message
-	 */
-	private void sendMessage() {
-		// send message to the server
-	}
-
-	/*
-	 *  receive data PIXEL mode
-	 */
-	private void receiveDataPixel() {
-		// receive data for pixel mode, then call oa
-	}
-
-	/*
-	 *  send data PIXEL mode
-	 */
-	private void sendDataPixel(int col, int row) {
-
-	}
-
-	/*
-	 *  receive data AREA mode
-	 */
-	private void receiveDataArea() {
-
-	}
-
-	/*
-	 *  send data AREA mode
-	 */
-	private void sendDataArea(int col, int row) {
-
-	}
-
 }
